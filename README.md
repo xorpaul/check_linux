@@ -7,6 +7,12 @@ Linux monitoring script for Nagios/Icinga/Shinken that wraps other check plugins
 Managing many different alarm thresholds on a central monitoring server gets tedious very quickly.
 This script parses a simple YAML config file, which can contain different thresholds for every server and you can deploy it via Puppet/Chef etc.
 
+
+![ok](https://github.com/xorpaul/check_linux/raw/master/example-images/ok.png)
+![warn](https://github.com/xorpaul/check_linux/raw/master/example-images/warn.png)
+![crit](https://github.com/xorpaul/check_linux/raw/master/example-images/crit.png)
+
+
 PREREQUISITES:
 --------
 * sysstat for sar(1)

@@ -338,7 +338,7 @@ def check_ntp(warn, crit)
     rc = 0
   end
   ntp_result['returncode'] = rc
-  ntp_result['text'] = "#{text} - NTP offset: #{ntp_offset} against #{ntp_server}"
+  ntp_result['text'] = "#{text} - NTP offset: #{ntp_offset} seconds against #{ntp_server}"
   ntp_result['perfdata'] = "ntp_offset=#{ntp_offset}s;#{warn};#{crit}"
   puts ntp_result if $debug
   return ntp_result
@@ -381,7 +381,7 @@ def check_oom()
   oom_result = {}
   if oom_data != ''
     oom_result['returncode'] = 1
-    oom_result['text'] = "WARNING: OOM killer was invoked! Check dmesg output and clear it with dmesg -c when finished: #{oom_data.split("\n")[0]}</br>"
+    oom_result['text'] = "WARNING: OOM killer was invoked! Check dmesg output and clear it with dmesg -c when finished: #{oom_data.split("\n")[0]}"
     oom_result['perfdata'] = ''
   else
     oom_result['returncode'] = 0
@@ -390,6 +390,45 @@ def check_oom()
   end
   puts oom_result if $debug
   return oom_result
+end
+
+def check_tasks()
+  debug_header('check_tasks')
+  tasks_cmd = "top -b -n1"
+  puts "executing #{tasks_cmd}" if $debug
+  tasks_data = `#{tasks_cmd}`.split("\n")
+  tasks_result = {'perfdata' => ''}
+  # How to write unmaintainable ruby code part 1
+  rows = %w(total running sleeping stopped zombie)
+  m = tasks_data[1].match(/^Tasks:\s*([0-9]+) total,\s*([0-9]+) running,\s*([0-9]+) sleeping,\s*([0-9]+) stopped,\s*([0-9]+) zombie/)
+  if m.size > 4 # check if regex did match top output
+    # create hash with regex groups as values with cast to Integer
+    d = Hash[*rows.zip(m[1..5].map(&:to_i)).flatten]
+    tasks_result['perfdata'] = "tasks_total=#{d['total']} tasks_running=#{d['running']} tasks_sleeping=#{d['sleeping']} tasks_stopped=#{d['stopped']} tasks_zombie=#{d['zombie']}"
+    if d['zombie'] != 0
+      text = ''
+      # How to write unmaintainable ruby code part 2
+      tasks_data[7..tasks_data.size].each do |line|
+        if line.match(/\d+\s+Z\s+\d+/)
+          zombie = line.split("\s")
+          # top has 11 columns until the COMMAND column and we
+          # do not know if the command strings contains more white space
+          text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} "
+        end
+      end
+      tasks_result['returncode'] = 1
+      d['zombie'] > 1 ? p = "processes" : p = "process"
+      tasks_result['text'] = "WARNING: Found #{d['zombie']} zombie #{p}: #{text}"
+    else
+      tasks_result['returncode'] = 0
+      tasks_result['text'] = "OK: Tasks: #{d['total']} total, #{d['running']} running, #{d['sleeping']} sleeping, #{d['stopped']} stopped, #{d['zombie']} zombie"
+    end
+  else
+      tasks_result['returncode'] = 3
+      tasks_result['text'] = "UNKNOWN: check_tasks regex did not match!"
+  end
+  puts tasks_result if $debug
+  return tasks_result
 end
 
 def check_os()
@@ -441,6 +480,7 @@ config['check_disk'].each do |partition, thresholds|
   results << check_disk(thresholds['warn'], thresholds['crit'], partition)
 end
 results << check_uptime(1800)
+results << check_tasks()
 results << check_ntp(config['check_ntp']['warn'], config['check_ntp']['crit'])
 results << check_proc('ntpd', 'ntp', false)
 case $os_type

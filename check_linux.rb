@@ -6,6 +6,7 @@
 # Version: 0.1
 # -----------------------
 
+require 'date'
 require 'optparse'
 require 'yaml'
 
@@ -397,7 +398,7 @@ def check_tasks()
   tasks_cmd = "top -b -n1"
   puts "executing #{tasks_cmd}" if $debug
   tasks_data = `#{tasks_cmd}`.split("\n")
-  tasks_result = {'perfdata' => ''}
+  tasks_result = {'perfdata' => '', 'returncode' => 0}
   # How to write unmaintainable ruby code part 1
   rows = %w(total running sleeping stopped zombie)
   m = tasks_data[1].match(/^Tasks:\s*([0-9]+) total,\s*([0-9]+) running,\s*([0-9]+) sleeping,\s*([0-9]+) stopped,\s*([0-9]+) zombie/)
@@ -406,20 +407,38 @@ def check_tasks()
     d = Hash[*rows.zip(m[1..5].map(&:to_i)).flatten]
     tasks_result['perfdata'] = "tasks_total=#{d['total']} tasks_running=#{d['running']} tasks_sleeping=#{d['sleeping']} tasks_stopped=#{d['stopped']} tasks_zombie=#{d['zombie']}"
     if d['zombie'] != 0
+      time_now = Time.now.to_i
       text = ''
       # How to write unmaintainable ruby code part 2
       tasks_data[7..tasks_data.size].each do |line|
         if line.match(/\d+\s+Z\s+\d+/)
           zombie = line.split("\s")
-          # top has 11 columns until the COMMAND column and we
-          # do not know if the command strings contains more white space
-          text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} "
+
+          # check if the zombie is at least x seconds old before alarming
+          ps_cmd = "ps -p #{zombie[0]} -o lstart"
+          puts "executing #{ps_cmd}" if $debug
+          ps_data = `#{ps_cmd}`.split("\n")
+          if ps_data.size > 1
+            zombie_start_date = DateTime.strptime("#{ps_data[1]} #{Time.new.zone}", '%a %b %d %H:%M:%S %Y %Z')
+            zombie_start_epoch = zombie_start_date.strftime('%s')
+            puts "found zombie_start_date: #{zombie_start_date} zombie_start_epoch: #{zombie_start_epoch}" if $debug
+            zombie_age_seconds = time_now - zombie_start_epoch.to_i
+            puts "found zombie_age_seconds: #{zombie_age_seconds} because #{time_now} - #{zombie_start_epoch}" if $debug
+
+            # top has 11 columns until the COMMAND column and we
+            # do not know if the command strings contains more white space 
+            if zombie_age_seconds > 300
+              text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} age: #{zombie_age_seconds}s"
+              tasks_result['returncode'] = 1
+            end
+          end
         end
       end
-      tasks_result['returncode'] = 1
-      d['zombie'] > 1 ? p = "processes" : p = "process"
-      tasks_result['text'] = "WARNING: Found #{d['zombie']} zombie #{p}: #{text}"
-    else
+      if tasks_result['returncode'] == 1
+        d['zombie'] > 1 ? p = "processes" : p = "process"
+        tasks_result['text'] = "WARNING: Found #{d['zombie']} zombie #{p}: #{text}"
+      end
+    elsif tasks_result['returncode'] == 0
       tasks_result['returncode'] = 0
       tasks_result['text'] = "OK: Tasks: #{d['total']} total, #{d['running']} running, #{d['sleeping']} sleeping, #{d['stopped']} stopped, #{d['zombie']} zombie"
     end

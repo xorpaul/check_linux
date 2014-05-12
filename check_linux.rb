@@ -253,7 +253,14 @@ def check_disk(warn, crit, partition)
   disk_result = {}
   disk_result['returncode'] = $?.exitstatus
   disk_result['text'] = disk_data[0]
-  disk_result['perfdata'] = disk_data[1].chomp().strip() if disk_data.size >= 2
+  # parse the free disk space percentage out of the output
+  m = /\((\d+)% inode=/.match(disk_result['text'])
+  disk_used_percentage_perfdata = ''
+  if m
+    disk_used_percentage = 100 - m[1].to_i
+    disk_used_percentage_perfdata = "#{partition}_used_%=#{disk_used_percentage}%;#{100-warn.to_i};#{100-crit.to_i}"
+  end
+  disk_result['perfdata'] = "#{disk_used_percentage_perfdata} #{disk_data[1].chomp().strip()}" if disk_data.size >= 2
   puts disk_result if $debug
   return disk_result
 end

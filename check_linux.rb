@@ -68,6 +68,7 @@ else
   config['check_swap'] = {}
   config['check_swap']['warn'] = '40%'
   config['check_swap']['crit'] = '20%'
+  config['check_swap']['enabled'] = true
   # check_disk defaults
   config['check_disk'] = {}
   config['check_disk']['/'] = {}
@@ -434,7 +435,7 @@ def check_tasks()
 
             # top has 11 columns until the COMMAND column and we
             # do not know if the command strings contains more white space 
-            if zombie_age_seconds > 300
+            if zombie_age_seconds > 3000
               text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} age: #{zombie_age_seconds}s"
               tasks_result['returncode'] = 1
             end
@@ -493,7 +494,7 @@ File.open('/proc/meminfo', 'r').each do |line|
     has_swap = true if $~[1].to_i > 0
   end
 end
-if has_swap
+if has_swap and config['check_swap']['enabled'] != false
   results << check_swap(config['check_swap']['warn'], config['check_swap']['crit'])
   if sar_interactive_mode
     sar_swap_thread = Thread.new{results << check_sar_swap(config['check_sar_swap']['warn'], config['check_sar_swap']['crit'], sar_interactive_mode)}
@@ -532,7 +533,7 @@ results << check_oom()
 # http://stackoverflow.com/a/17767589/682847
 if sar_interactive_mode
   sar_cpu_thread.join
-  if has_swap
+  if has_swap and config['check_swap']['enabled'] != false
     sar_swap_thread.join
   end
 end

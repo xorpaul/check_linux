@@ -54,8 +54,8 @@ else
   # check_load defaults
   config['check_load'] = {}
   pc = `grep -c vendor_id /proc/cpuinfo`.to_i
-  config['check_load']['warn'] = "#{pc + 2},#{pc + 2},#{pc + 2}"
-  config['check_load']['crit'] = "#{pc + 4},#{pc + 4},#{pc + 4}"
+  config['check_load']['warn'] = "#{pc + 4},#{pc + 3},#{pc + 2}"
+  config['check_load']['crit'] = "#{pc + 8},#{pc + 7},#{pc + 6}"
   # check_sar_cpu defaults
   config['check_sar_cpu'] = {}
   config['check_sar_cpu']['warn'] = 90

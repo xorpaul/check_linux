@@ -266,6 +266,27 @@ def check_disk(warn, crit, partition)
   return disk_result
 end
 
+def check_disks(disks_config)
+  debug_header("check_disks")
+  disks_cmd = "df --local --exclude-type rootfs --exclude-type tmpfs --exclude-type devtmpfs"
+  puts "executing #{disks_cmd}" if $debug
+  disks_data = `#{disks_cmd}`.split("\n")
+  # remove column header line
+  disks_data = disks_data[1..-1]
+  disks_results = []
+  disks_data.each do |d|
+    cols = d.split("\s")
+    mountpoint = cols[-1]
+    puts disks_config if $debug
+    if disks_config.has_key?(mountpoint)
+      disks_results << check_disk(disks_config[mountpoint]['warn'], disks_config[mountpoint]['crit'], mountpoint)
+    else
+      disks_results << check_disk('5%', '10%', mountpoint)
+    end
+  end
+  return disks_results
+end
+
 def check_proc(name, owner='root', check_with_regex=true)
   debug_header("check_proc with #{name}")
   absolute_path = `which #{name}`
@@ -511,9 +532,7 @@ if has_swap and config['check_swap']['enabled'] != false
   end
 end
 
-config['check_disk'].each do |partition, thresholds|
-  results << check_disk(thresholds['warn'], thresholds['crit'], partition)
-end
+check_disks(config['check_disk']).each {|result| results << result}
 results << check_uptime(1800)
 results << check_tasks()
 results << check_ntp(config['check_ntp']['warn'], config['check_ntp']['crit'])

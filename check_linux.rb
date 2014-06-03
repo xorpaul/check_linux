@@ -233,14 +233,22 @@ def check_sar_swap(warn, crit, interactive_mode)
   return sar_swap_result
 end
 
-def check_swap(warn, crit)
+def check_swap(warn, crit, ram_warn, ram_crit)
   debug_header('check_swap')
   swap_cmd = "#{$plugin_dir}/check_swap -w #{warn} -c #{crit}"
   puts "executing #{swap_cmd}" if $debug
   swap_data = `#{swap_cmd}`.split('|')
-  swap_result = {}
-  swap_result['returncode'] = $?.exitstatus
-  swap_result['text'] = swap_data[0]
+  # only alert on low swap space if it is also low on free ram
+  swap_result,ram_result = {}, {}
+  ram_result = check_ram(ram_warn, ram_crit)
+  if ram_result['returncode'] == 2
+    swap_result['returncode'] = $?.exitstatus
+    swap_result['text'] = swap_data[0]
+  else
+    $?.exitstatus > 0 ? text = "ignored, because there is enough free RAM (>#{ram_crit}% free)" : text = ''
+    swap_result['returncode'] = 0
+    swap_result['text'] = "#{swap_data[0]}#{text}"
+  end
   swap_result['perfdata'] = swap_data[1].chomp().strip()
   puts swap_result if $debug
   return swap_result
@@ -524,7 +532,7 @@ File.open('/proc/meminfo', 'r').each do |line|
   end
 end
 if has_swap and config['check_swap']['enabled'] != false
-  results << check_swap(config['check_swap']['warn'], config['check_swap']['crit'])
+  results << check_swap(config['check_swap']['warn'], config['check_swap']['crit'], config['check_mem']['warn'], config['check_mem']['crit'])
   if sar_interactive_mode
     sar_swap_thread = Thread.new{results << check_sar_swap(config['check_sar_swap']['warn'], config['check_sar_swap']['crit'], sar_interactive_mode)}
   else

@@ -290,13 +290,21 @@ def check_ram(warn, crit)
   debug_header('check_ram')
   mf = '/proc/meminfo'
   puts "inspecting #{mf}" if $debug
-  total, free = 0, 0
+  total, free, buffers, cached, slabr = 0, 0, 0, 0, 0
   File.open(mf, 'r').each do |line|
     case line
     when /^(?:MemTotal:)\s+([0-9]+) kB$/
       total = $~[1].to_i
-    when /^(?:MemFree|Buffers|Cached|SReclaimable):\s+([0-9]+) kB$/
-      free += $~[1].to_i
+    when /^(MemFree|Buffers|Cached|SReclaimable):\s+([0-9]+) kB$/
+      free += $~[2].to_i
+      type = $~[1].to_s
+      if type == 'Buffers'
+        buffers = $~[2].to_i
+      elsif type == 'Cached'
+        cached = $~[2].to_i
+      elsif type == 'SReclaimable'
+        slabr = $~[2].to_i
+      end
     end
   end
   ram_result = {}
@@ -316,7 +324,7 @@ def check_ram(warn, crit)
   end
   ram_result['returncode'] = rc
   ram_result['text'] = "#{text} - #{percent_free}% RAM free: #{free}MB total: #{total}MB"
-  ram_result['perfdata'] = "ram_free_percent=#{percent_free}%;#{warn};#{crit};0;100 ram_free=#{free}MB;#{(warn * total) / 100};#{(crit * total) / 100};0;#{total}"
+  ram_result['perfdata'] = "ram_free_percent=#{percent_free}%;#{warn};#{crit};0;100 ram_free=#{free}MB;#{(warn * total) / 100};#{(crit * total) / 100};0;#{total} ram_buffers=#{buffers / 1024}MB ram_cached=#{cached / 1024}MB ram_slabr=#{slabr / 1024}MB"
   puts ram_result if $debug
   return ram_result
 end

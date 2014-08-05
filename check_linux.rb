@@ -82,6 +82,9 @@ else
   config['check_ntp'] = {}
   config['check_ntp']['warn'] = 5
   config['check_ntp']['crit'] = 10
+  # check_tasks defaults
+  config['check_tasks'] = {}
+  config['check_tasks']['allowed_zombies'] = 0
   puts "Using default settings: #{config}" if $debug
   File.open(configfile, 'w') do |f|
     f.write(config.to_yaml)
@@ -107,7 +110,7 @@ def humanize(secs)
 end
 
 def check_load(warn, crit)
-  debug_header('check_load')
+  debug_header(__method__)
   load_cmd = "#{$plugin_dir}/check_load -w #{warn} -c #{crit}"
   puts "executing #{load_cmd}" if $debug
   load_data = `#{load_cmd}`.split('|')
@@ -120,23 +123,23 @@ def check_load(warn, crit)
 end
 
 def check_sar_cpu(warn, crit, interactive_mode=false)
-  debug_header('check_sar_cpu')
+  debug_header(__method__)
   sar_cpu_result = {}
-  regex = /([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)$/
+  regex = /([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)$/
   if interactive_mode == true
     sar_cpu_cmd = "`which sar` 25 1"
     puts "executing #{sar_cpu_cmd}" if $debug
     sar_cpu_output = `#{sar_cpu_cmd}`
     sar_cpu_data = sar_cpu_output.split("\n")
-    m = regex.match(sar_cpu_data[sar_cpu_data.size()-2])
+    m = regex.match(sar_cpu_data[-2])
   else
     sar_cpu_cmd = "`which sar`"
     puts "executing #{sar_cpu_cmd}" if $debug
     sar_cpu_output = `#{sar_cpu_cmd}`
     sar_cpu_data = sar_cpu_output.split("\n")
-    m = regex.match(sar_cpu_data[sar_cpu_data.size()-2])
+    m = regex.match(sar_cpu_data[-2])
     if m == nil
-      m = regex.match(sar_cpu_data[sar_cpu_data.size()-4])
+      m = regex.match(sar_cpu_data[-4])
     end
     if m == nil
       interactive_mode = true
@@ -145,7 +148,7 @@ def check_sar_cpu(warn, crit, interactive_mode=false)
       puts "executing #{sar_cpu_cmd}, because regex did not match!" if $debug
       sar_cpu_output = `#{sar_cpu_cmd}`
       sar_cpu_data = sar_cpu_output.split("\n")
-      m = regex.match(sar_cpu_data[sar_cpu_data.size()-2])
+      m = regex.match(sar_cpu_data[-2])
     end
   end
   if m != nil 
@@ -179,23 +182,23 @@ def check_sar_cpu(warn, crit, interactive_mode=false)
 end
 
 def check_sar_swap(warn, crit, interactive_mode)
-  debug_header('check_sar_swap')
+  debug_header(__method__)
   sar_swap_result = {}
-  regex = /([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)$/
+  regex = /([0-9]+[,.][0-9]+)\s+([0-9]+[,.][0-9]+)$/
   if interactive_mode == true
     sar_swap_cmd = "`which sar` -W 25 1"
     puts "executing #{sar_swap_cmd}" if $debug
     sar_swap_output = `#{sar_swap_cmd}`
     sar_swap_data = sar_swap_output.split("\n")
-    m = regex.match(sar_swap_data[sar_swap_data.size()-2])
+    m = regex.match(sar_swap_data[-2])
   else
     sar_swap_cmd = "`which sar` -W"
     puts "executing #{sar_swap_cmd}" if $debug
     sar_swap_output = `#{sar_swap_cmd}`
     sar_swap_data = sar_swap_output.split("\n")
-    m = regex.match(sar_swap_data[sar_swap_data.size()-2])
+    m = regex.match(sar_swap_data[-2])
     if m == nil
-      m = regex.match(sar_swap_data[sar_swap_data.size()-4])
+      m = regex.match(sar_swap_data[-4])
     end
     if m == nil
       interactive_mode = true
@@ -204,7 +207,7 @@ def check_sar_swap(warn, crit, interactive_mode)
       puts "executing #{sar_swap_cmd}, because regex did not match!" if $debug
       sar_swap_output = `#{sar_swap_cmd}`
       sar_swap_data = sar_swap_output.split("\n")
-      m = regex.match(sar_swap_data[sar_swap_data.size()-2])
+      m = regex.match(sar_swap_data[-2])
     end
   end
   if m != nil
@@ -234,7 +237,7 @@ def check_sar_swap(warn, crit, interactive_mode)
 end
 
 def check_swap(warn, crit, ram_warn, ram_crit)
-  debug_header('check_swap')
+  debug_header(__method__)
   swap_cmd = "#{$plugin_dir}/check_swap -w #{warn} -c #{crit}"
   puts "executing #{swap_cmd}" if $debug
   swap_data = `#{swap_cmd}`.split('|')
@@ -255,7 +258,7 @@ def check_swap(warn, crit, ram_warn, ram_crit)
 end
 
 def check_disk(warn, crit, partition)
-  debug_header("check_disk partition #{partition}")
+  debug_header(__method__)
   disk_cmd = "#{$plugin_dir}/check_disk -w #{warn} -c #{crit} #{partition}"
   puts "executing #{disk_cmd}" if $debug
   disk_data = `#{disk_cmd}`.split('|')
@@ -275,7 +278,7 @@ def check_disk(warn, crit, partition)
 end
 
 def check_disks(disks_config)
-  debug_header("check_disks")
+  debug_header(__method__)
   disks_cmd = "df --local --exclude-type rootfs --exclude-type tmpfs --exclude-type devtmpfs"
   puts "executing #{disks_cmd}" if $debug
   disks_data = `#{disks_cmd}`.split("\n")
@@ -285,6 +288,7 @@ def check_disks(disks_config)
   disks_data.each do |d|
     cols = d.split("\s")
     mountpoint = cols[-1]
+    next if mountpoint == '/boot'
     puts disks_config if $debug
     if disks_config.has_key?(mountpoint)
       disks_results << check_disk(disks_config[mountpoint]['warn'], disks_config[mountpoint]['crit'], mountpoint)
@@ -296,7 +300,7 @@ def check_disks(disks_config)
 end
 
 def check_proc(name, owner='root', check_with_regex=true)
-  debug_header("check_proc with #{name}")
+  debug_header("#{__method__} with #{name}")
   absolute_path = `which #{name}`
   # if /usr/sbin is not in your PATH then fall back to fuzzier -C check_proc
   if check_with_regex and absolute_path != ''
@@ -316,7 +320,7 @@ def check_proc(name, owner='root', check_with_regex=true)
 end
 
 def check_ram(warn, crit)
-  debug_header('check_ram')
+  debug_header(__method__)
   mf = '/proc/meminfo'
   puts "inspecting #{mf}" if $debug
   total, free, buffers, cached, slabr = 0, 0, 0, 0, 0
@@ -344,6 +348,7 @@ def check_ram(warn, crit)
   if percent_free <= crit
     text = 'CRITICAL'
     rc = 2
+    # TODO exec 'ps aux --sort -rss | head' and append to long output
   elsif percent_free <= warn
     text = 'WARNING'
     rc = 1
@@ -359,7 +364,7 @@ def check_ram(warn, crit)
 end
 
 def check_ntp(warn, crit)
-  debug_header('check_ntp')
+  debug_header(__method__)
   ntp_cmd = "`which ntpq` -np"
   puts "executing #{ntp_cmd}" if $debug
   ntp_output = `#{ntp_cmd}`.split("\n")
@@ -391,7 +396,7 @@ def check_ntp(warn, crit)
 end
 
 def check_uptime(secs)
-  debug_header('check_uptime')
+  debug_header(__method__)
   upf = '/proc/uptime'
   puts "inspecting #{upf}" if $debug
   m = nil
@@ -420,15 +425,25 @@ def check_uptime(secs)
 end  
 
 def check_oom()
-  debug_header('check_oom')
-  oom_cmd = "dmesg | grep 'invoked oom-killer:'"
+  debug_header(__method__)
+  oom_cmd = "dmesg | awk '/invoked oom-killer:/ || /Killed process/'"
   puts "executing #{oom_cmd}" if $debug
   oom_data = `#{oom_cmd}`
-  oom_result = {}
-  if oom_data != ''
+  lines_count = oom_data.split("\n").size
+  oom_result = {'perfdata' => "oom_killer_lines=#{lines_count}"}
+  if lines_count == 2
     oom_result['returncode'] = 1
-    oom_result['text'] = "WARNING: OOM killer was invoked! Check dmesg output and clear it with dmesg -c when finished: #{oom_data.split("\n")[0]}"
-    oom_result['perfdata'] = ''
+    invoked_line, killed_line = oom_data.split("\n")
+    killed_pid = killed_line.split(" ")[3]
+    killed_cmd = "dmesg | grep #{killed_pid}]"
+    puts "executing #{killed_cmd}" if $debug
+    killed_data = `#{killed_cmd}`
+    killed_pid_rss = killed_data.split(" ")[-5].to_i
+    oom_result['text'] = "WARNING: #{invoked_line.split(" ")[1]} invoked oom-killer: #{killed_line.split(" ")[1..4].join(" ")} to free #{killed_pid_rss / 1024}MB - reset with dmesg -c when finished"
+  elsif lines_count > 3
+    # we can't match this with reasonable effort, so just scream for help
+    oom_result['returncode'] = 1
+    oom_result['text'] = "WARNING: oom-killer was invoked and went on a killing spree (dmesg | awk '/invoked oom-killer:/ || /Killed process/) - reset with dmesg -c when finished"
   else
     oom_result['returncode'] = 0
     oom_result['text'] = "OK: No OOM killer activity found in dmesg output"
@@ -438,9 +453,9 @@ def check_oom()
   return oom_result
 end
 
-def check_tasks()
-  debug_header('check_tasks')
-  tasks_cmd = "top -b -n1"
+def check_tasks(allowed_zombies = 0)
+  debug_header(__method__)
+  tasks_cmd = "top -c -b -n1"
   puts "executing #{tasks_cmd}" if $debug
   tasks_data = `#{tasks_cmd}`.split("\n")
   tasks_result = {'perfdata' => '', 'returncode' => 0}
@@ -470,33 +485,45 @@ def check_tasks()
             zombie_age_seconds = time_now - zombie_start_epoch.to_i
             puts "found zombie_age_seconds: #{zombie_age_seconds} because #{time_now} - #{zombie_start_epoch}" if $debug
 
-            # top has 11 columns until the COMMAND column and we
-            # do not know if the command strings contains more white space 
+            # top has 12 columns until the COMMAND column and we
+            # do not know if the command string contains more white space 
             if zombie_age_seconds > 3000
-              text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} age: #{zombie_age_seconds}s"
+              # get PPID of zombie process
+              m_ppid = nil
+              File.open("/proc/#{zombie[0]}/status", 'r').each do |status_line|
+                 m_ppid = status_line.match(/^PPid:\t([0-9]+)\n/)
+                 break if m_ppid
+              end
+              text += "pid: #{zombie[0]} #{zombie[11..zombie.size].join(" ")} user: #{zombie[1]} ppid: #{m_ppid[1]} started: #{zombie_start_date} (#{zombie_age_seconds}s)"
               tasks_result['returncode'] = 1
             end
-          end
-        end
-      end
-      if tasks_result['returncode'] == 1
-        d['zombie'] > 1 ? p = "processes" : p = "process"
-        tasks_result['text'] = "WARNING: Found #{d['zombie']} zombie #{p}: #{text}"
-      end
-    elsif tasks_result['returncode'] == 0
+          end # close ps_data.size > 1
+        end # close line.match
+      end # close d['zombie'] != 0
+    end # close m.size > 4
+  if tasks_result['returncode'] == 1
+    d['zombie'] > 1 ? p = "processes" : p = "process"
+    if d['zombie'] > allowed_zombies
+      tasks_result['text'] = "WARNING: Found #{d['zombie']} zombie #{p}: #{text}"
+    else
+      tasks_result['text'] = "OK: Found #{d['zombie']} <= #{allowed_zombies} allowed zombie #{p}: #{text}"
       tasks_result['returncode'] = 0
       tasks_result['text'] = "OK: Tasks: #{d['total']} total, #{d['running']} running, #{d['sleeping']} sleeping, #{d['stopped']} stopped, #{d['zombie']} zombie"
     end
+  elsif tasks_result['returncode'] == 0
+    tasks_result['returncode'] = 0
+    tasks_result['text'] = "OK: Tasks: #{d['total']} total, #{d['running']} running, #{d['sleeping']} sleeping, #{d['stopped']} stopped, #{d['zombie']} zombie"
+  end
   else
-      tasks_result['returncode'] = 3
-      tasks_result['text'] = "UNKNOWN: check_tasks regex did not match!"
+    tasks_result['returncode'] = 3
+    tasks_result['text'] = "UNKNOWN: check_tasks regex did not match!"
   end
   puts tasks_result if $debug
   return tasks_result
 end
 
 def check_os()
-  debug_header('check_os')
+  debug_header(__method__)
   type = 'Debian'
   if File.exists?('/etc/redhat-release')
     type = 'RedHat'
@@ -542,7 +569,12 @@ end
 
 check_disks(config['check_disk']).each {|result| results << result}
 results << check_uptime(1800)
-results << check_tasks()
+
+begin
+  results << check_tasks(config['check_tasks']['allowed_zombies'])
+rescue NoMethodError
+  results << check_tasks(0)
+end
 results << check_ntp(config['check_ntp']['warn'], config['check_ntp']['crit'])
 results << check_proc('ntpd', 'ntp', false)
 case $os_type

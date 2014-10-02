@@ -1,0 +1,18 @@
+name: check_linux
+description: "file:///README.md"
+url: "https://github.com/xorpaul/check_linux"
+tags: Statistic
+vendor: Linux
+target: Operating System
+type: Plugin
+license: gplv3
+releases: 
+  - 
+    name: 1.0
+    description: "1.0 Release"
+    files: 
+      - 
+        name: check_linux.rb
+        url: "file:///check_linux.rb"
+        description: "First release"
+        checksum: 07573792c147e0093e0ba64b7b45d851
